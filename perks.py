@@ -54,6 +54,8 @@ class Perk:
         self.passive = False
         self.charges = None
         self.remaining_days = None
+        self.activated = False #whether or not the perk has been activated by the user - at this point just for bounty
+                                # this stops the situation where the bounty only gets activated on days 2,5,8
         
     def make_move(self):
         """
@@ -400,6 +402,51 @@ class Vindictive(Perk):
     def __str__(self):
         return 'vindictive'
     
+class Paranoid(Perk):
+    def __init__(self, identity, num_players):
+        """
+        Paranoid perk
+
+        If you are observed at night, you are notified of who observed you.
+        """
+        super().__init__(identity, num_players)
+        self.passive = True
+        
+        
+class Bounty(Perk):
+    def __init__(self, identity, num_players):
+        """
+        Bounty perk
+        
+        Publically set a bounty on a random player. If they are killed within a day,
+        you and the killer both get 2 bonus points. If they are voted out within a day,
+        you get a bonus poin. If they are not killed or voted out, you lose one bonus point.
+        """
+        super().__init__(identity, num_players)
+        self.target = [x for x in range(1, num_players+1) if x != identity][rand.randint(0, num_players - 2)]
+        self.remaining_days = 2 # as a scummy workaround, 2 = 1 day left, 1 = timer ran out and 0 = perk isn't really active anymore.
+        self.activated = False
+
+        
+class Relentless(Perk):
+    def __init__(self, identity, num_players):
+        """
+        Relentless perk
+        
+        Kills bypass shield.
+        """
+        
+        
+
+class Peer(Perk):
+    def __init__(self, identity, num_players):
+        """
+        Peer perk
+        
+        Choose a player; if they are not the killer, you have a 1 in 2 chance
+        of confirming that they are not the killer. 
+        """
+
 
 class Compel(Perk):
     def __init__(self, identity, num_players):
@@ -422,40 +469,3 @@ class Nosey(Perk):
         """
         
         
-class Paranoid(Perk):
-    def __init__(self, identity, num_players):
-        """
-        Paranoid perk
-
-        If you are observed at night, you are notified of who observed you.
-        """
-        
-        
-class Bounty(Perk):
-    def __init__(self, identity, num_players):
-        """
-        Bounty perk
-        
-        Publically set a bounty on a player. If they are killed within a day,
-        you and the killer both get 2 bonus points. If they are not killed, you
-        lose one bonus point.
-        """
-        
-        
-class Relentless(Perk):
-    def __init__(self, identity, num_players):
-        """
-        Relentless perk
-        
-        Kills bypass shield.
-        """
-        
-
-class Peer(Perk):
-    def __init__(self, identity, num_players):
-        """
-        Peer perk
-        
-        Choose a player; if they are not the killer, you have a 1 in 2 chance
-        of confirming that they are not the killer. 
-        """

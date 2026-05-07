@@ -14,9 +14,9 @@ from player import Player, ResponseNight
 
 # define perks, and define which perks are visits.
 PERKS = ['vigil', 'track', 'distract', 'shield', 'selfish', 'gaze', 'telepathy'
-         , 'narcissist', 'static', 'forgery', 'pact', 'vindictive']
+         , 'narcissist', 'static', 'forgery', 'pact', 'vindictive', 'bounty']
 PERK_WEIGHTS = [1] * len(PERKS)
-UNIQUE_PERKS = ['distract', 'forgery']
+UNIQUE_PERKS = ['distract', 'forgery', 'bounty']
 VISITS = ['kill', 'track', 'shield']
 
 import pandas as pd
@@ -26,6 +26,8 @@ import sys
 from night_abilities import distract, shield_and_kill, gaze, visit_abilities
 
 # to-dos
+#           - bounty logic has been implemented but in no way tested.
+#           - bounty needs to be activateable during the night.
 #           - define the perks, weights, unique perks and visits elsewhere, and import them into this & player as necessary.
 #           - loads of perks to implement
 #           - actual UI
@@ -90,6 +92,15 @@ class GameMaster:
         self.broadcast(f'Day {time_phase + 1}.')
         responses = {i : self.players[i].get_day_response() for i in self.players if i != killed_player}
         responses = pd.DataFrame(responses).T
+
+        bounty_exists = False
+        if responses[~responses['bounty_target'].isna()].shape[0] > 0:
+            #bounty logic.
+            bounty_exists = True
+            bounty_params = responses[~responses['bounty_target'].isna()][['bounty_target', 'bounty_days']]
+            bounty_setter = bounty_params.index[0]
+            bounty_target = bounty_params['bounty_target'].loc[bounty_setter]
+            bounty_days = bounty_params['bounty_days'].loc[bounty_setter]
         
         # give points to anyone who voted for the killer
         correct_voters = responses[responses['vote'] == self.current_killer].index
@@ -112,6 +123,18 @@ class GameMaster:
         else:
             voted_player = vote_past_threshold.index[0]
         
+        # if it's the second day of the bounty, give points where req'd.
+        if bounty_exists and bounty_days == 1:
+            if killed_player == bounty_target:
+                self.broadcast(f'Bounty target {bounty_target} was killed; killer and bounty setter get 2 bonus points.')
+                self.points_df.loc[[bounty_setter, self.current_killer], 'Bonus Points'] += 2
+            elif voted_player == bounty_target:
+                self.broadcast(f'Bounty target {bounty_target} was voted for; bounty setter gets 1 bonus point.')
+                self.points_df.loc[bounty_setter, 'Bonus Points'] += 1
+            else:
+                self.broadcast(f'Bounty not completed; bounty setter loses 1 bonus point.')
+                self.points_df.loc[bounty_setter, 'Bonus Points'] -= 1
+
         # if the killer wasn't found, give points to killer and bonus points to selfish
         if voted_player != self.current_killer:
             if voted_player > 0:
@@ -133,7 +156,10 @@ class GameMaster:
         if killed_player is not None:
             self.players[killed_player].set_alive(True)
             self.broadcast(f'{killed_player} has been exhumed.')
-            
+
+        if bounty_exists and bounty_days == 2:
+            self.broadcast(f'Bounty set on {bounty_target}. Killer & bounty setter will gain 2 bonus points if they are killed. Bounty setter will gain 1 bonus point if they are voted out tomorrow.')
+
         # iterate days_remaining on any relevant perks
         for p in self.players:
             self.players[p].day_has_passed()
