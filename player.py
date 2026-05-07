@@ -5,12 +5,13 @@ Created on Wed Apr 29 08:42:08 2026
 @author: lachl
 """
 from perks import Kill, Watch, Vigil, Track, Distract, Shield, Selfish, Gaze, \
-    Telepathy, Narcissist, Static, Forgery, Pact, Vindictive
+    Telepathy, Narcissist, Static, Forgery, Pact, Vindictive, Bounty
 import random as rand
 
 PERKS = ['vigil', 'track', 'distract', 'shield', 'selfish', 'gaze', 
-         'telepathy', 'narcissist', 'static', 'forgery', 'pact', 'vindictive']
-UNIQUE_PERKS = ['distract', 'forgery']
+         'telepathy', 'narcissist', 'static', 'forgery', 'pact', 'vindictive'
+         , 'bounty']
+UNIQUE_PERKS = ['distract', 'forgery', 'bounty']
 VISITS = ['kill', 'track', 'shield']
 
 
@@ -60,6 +61,7 @@ class Player:
         self.forgery = Forgery(identity, num_players)
         self.pact = Pact(identity, num_players)
         self.vindictive = Vindictive(identity, num_players)
+        self.bounty = Bounty(identity, num_players)
         
         self.str_to_perk = {
             'kill'          : self.kill,
@@ -75,7 +77,8 @@ class Player:
             'static'        : self.static,
             'forgery'       : self.forgery,
             'pact'          : self.pact,
-            'vindictive'    : self.vindictive
+            'vindictive'    : self.vindictive,
+            'bounty'        : self.bounty
         }
         
         
@@ -223,7 +226,9 @@ class Player:
             'pact_target'       : pact_target, 
             'vindictive_target' : vindictive_target,
             'selfish'           : 'selfish' in self.perks,
-            'narcissist'        : 'narcissist' in self.perks
+            'narcissist'        : 'narcissist' in self.perks,
+            'bounty_target'     : self.bounty.target if ('bounty' in self.perks and self.bounty.remaining_days > 0) else None,
+            'bounty_days'       : self.bounty.remaining_days if 'bounty' in self.perks else None
         }
     
     
@@ -241,10 +246,10 @@ class Player:
         
         
     def day_has_passed(self):
-        if 'Pact' in self.perks:
-            self.pact.remaining_days -= 1
-        if 'Vindictive' in self.perks:
-            self.vindictive.remaining_days -= 1
+        for perk_name in ['Pact', 'Vindictive', 'Bounty']:
+            if perk_name in self.perks:
+                if self.str_to_perk[perk_name].remaining_days > 0:
+                    self.str_to_perk[perk_name].remaining_days -= 1
     
 
     def __str__(self):

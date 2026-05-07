@@ -106,14 +106,18 @@ def gaze(actions, responses):
     return responses
     
 def shield_and_kill(actions, responses):
-    shields = list(set(list(actions[actions['action'] == 'shield']['target_1'])))
+    #shields = list(set(list(actions[actions['action'] == 'shield']['target_1'])))
+    shields = actions[actions['action'] == 'shield']['target_1']
     killed_player = actions[actions['action'] == 'kill']['target_1'].iloc[0]
-    current_killer = actions[actions['action'] == 'kill'].index[0]
-    
-    if killed_player in shields:
-        responses[killed_player].add_message('You were attacked, but shielded.')
-        responses[current_killer].unsuccessful('they were shielded')
-        killed_player = None
+    current_killer = actions[actions['action'] == 'kill'].index[0] #pretty shitty workaround? maybe? probably a bug waiting to happen
+
+    if killed_player in list(shields):
+        if 'relentless' in list(actions.loc[current_killer, ['perk1', 'perk2', 'perk3']]):
+            responses[killed_player].was_killed()            
+        else:   
+            responses[killed_player].add_message('You were attacked, but shielded.')
+            responses[current_killer].unsuccessful('they were shielded')
+            killed_player = None
         
     else:
         responses[killed_player].was_killed()
