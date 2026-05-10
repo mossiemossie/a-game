@@ -5,10 +5,7 @@ Created on Sun May  3 17:37:29 2026
 @author: lachl
 """
 
-VISITS = ['kill', 'track', 'shield']
-PERKS = ['vigil', 'track', 'distract', 'shield', 'selfish', 'gaze', 'telepathy'
-         , 'narcissist', 'static', 'forgery', 'pact', 'vindictive']
-PERK_WEIGHTS = [1] * len(PERKS)
+from defs import PERKS, PERK_WEIGHTS, UNIQUE_PERKS, VISIT_PERKS, FIRST_ROUND_PERKS
 
 # helper functions; returns true if the target has the static perk and passes the luck check
 is_static = lambda df, t : 'static' in list(df.loc[t, ['perk1', 'perk2', 'perk3']]) and rand.randint(0, 3) == 0
@@ -34,6 +31,7 @@ def visit_abilities(actions, responses):
     responses = vigil(actions, visits, responses, forgeries)
     responses = track(actions, visits, responses, forgeries)
     responses = telepathy(actions, visits, responses, forgeries)
+    responses = triangulate(actions, visits, responses)
     
     return responses
 
@@ -124,6 +122,7 @@ def shield_and_kill(actions, responses):
         
     return responses, killed_player
     
+
 def distract(actions, responses):
     distractor = actions[actions['action'] == 'distract']
     
@@ -137,6 +136,29 @@ def distract(actions, responses):
     
     return actions, responses
 
+
+def bounty(actions, responses):
+    bounty = actions[actions['action'] == 'bounty'].index
+    
+    for b in bounty:
+        responses[b].set_targets(actions.loc[b, 'target_1'], None)
+
+
+def triangulate(actions, visits, responses):
+    triangulators = actions[actions['action'] == 'triangulate'].index
+
+    for t in triangulators:
+        target_1 = actions.loc[t, 'target_1']
+        target_2 = actions.loc[t, 'target_2']
+
+        target_1_visited = get_visited(actions, visits, target_1)
+        target_2_visited = get_visited(actions, visits, target_2)
+
+        visit_occurred = target_1 in target_2_visited or target_2 in target_1_visited
+        responses[t].set_result(visit_occurred)
+
+    return responses
+
     
     """-------------------------
         PARSE VISITS/ACTIONS
@@ -144,7 +166,7 @@ def distract(actions, responses):
 
 
 def parse_visits(actions):
-    visits = actions[actions['action'].isin(VISITS)]['target_1'].reset_index()
+    visits = actions[actions['action'].isin(VISIT_PERKS)]['target_1'].reset_index()
     visits.columns = ['Visitor', 'Visited']
     return visits
 

@@ -5,14 +5,18 @@ Created on Wed Apr 29 08:42:08 2026
 @author: lachl
 """
 from perks import Kill, Watch, Vigil, Track, Distract, Shield, Selfish, Gaze, \
-    Telepathy, Narcissist, Static, Forgery, Pact, Vindictive, Bounty
+    Telepathy, Narcissist, Static, Forgery, Pact, Vindictive, Bounty, \
+        Relentless, Triangulate
+    
 import random as rand
 
-PERKS = ['vigil', 'track', 'distract', 'shield', 'selfish', 'gaze', 
-         'telepathy', 'narcissist', 'static', 'forgery', 'pact', 'vindictive'
-         , 'bounty']
-UNIQUE_PERKS = ['distract', 'forgery', 'bounty']
-VISITS = ['kill', 'track', 'shield']
+from defs import PERKS, PERK_WEIGHTS, UNIQUE_PERKS, VISIT_PERKS, FIRST_ROUND_PERKS
+
+from player_gui import PlayerWindow
+from PyQt6.QtWidgets import QApplication
+import sys
+
+
 
 
 class Player:
@@ -24,7 +28,7 @@ class Player:
         ----------
         identity : int
             The identity of this player.
-        num_players : TYPE
+        num_players : TYPE 
             The number of players in the game.
 
         """
@@ -41,6 +45,11 @@ class Player:
         self.perks = ['watch']
         # actions the player can make
         self.actions = ['watch']
+
+        app = QApplication(sys.argv)
+        window = PlayerWindow()
+        window.show()
+        sys.exit(app.exec()) 
         
         
     def load_perks(self, identity, num_players):
@@ -62,6 +71,8 @@ class Player:
         self.pact = Pact(identity, num_players)
         self.vindictive = Vindictive(identity, num_players)
         self.bounty = Bounty(identity, num_players)
+        self.relentless = Relentless(identity, num_players)
+        self.triangulate = Triangulate(identity, num_players)
         
         self.str_to_perk = {
             'kill'          : self.kill,
@@ -78,7 +89,9 @@ class Player:
             'forgery'       : self.forgery,
             'pact'          : self.pact,
             'vindictive'    : self.vindictive,
-            'bounty'        : self.bounty
+            'bounty'        : self.bounty,
+            'relentless'    : self.relentless,
+            'triangulate'   : self.triangulate
         }
         
         
@@ -183,7 +196,13 @@ class Player:
                 print(f'{a} (Charges remaining: {self.str_to_perk[a].charges})')
 
         action = input()
-        while action not in self.actions: # i would need to add a check here for charges but text-based isn't the lasting state of this game so i won't
+        def check_valid_action(action):
+            valid_action = action in self.actions
+            if valid_action:
+                valid_action = self.str_to_perk[action].charges != 0
+            return valid_action
+
+        while not check_valid_action(action): 
             action = input(f'{self.identity}: Please type a valid action: ')
 
         action = self.str_to_perk[action]
@@ -198,7 +217,7 @@ class Player:
         print(f'{self.identity}: {result}')
     
     
-    def get_day_response(self):
+    def send_day_response(self):
         """
         Get votes from players, and the existence of any day-related perks. 
 
@@ -243,13 +262,20 @@ class Player:
         for m in response.messages:
             print(f"{self.identity}: {m}")
         self.str_to_perk[response.action].print_result(response)
+
+        if response.action == 'bounty':
+            self.bounty.activated = True
+            self.bounty.target = response.target_1
         
         
     def day_has_passed(self):
-        for perk_name in ['Pact', 'Vindictive', 'Bounty']:
+        for perk_name in ['pact', 'vindictive']:
             if perk_name in self.perks:
                 if self.str_to_perk[perk_name].remaining_days > 0:
                     self.str_to_perk[perk_name].remaining_days -= 1
+        
+        if 'bounty' in self.perks and self.bounty.activated and self.bounty.remaining_days > 0:
+            self.bounty.remaining_days -= 1
     
 
     def __str__(self):
