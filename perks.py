@@ -7,9 +7,6 @@ Created on Mon Apr 27 13:44:26 2026
 
 import random as rand
 
-FIRST_ROUND_PERKS = []
-FIRST_ROUND_WEIGHTS = []
-
 
 def list_to_string(target_list):
     if len(target_list) == 0:
@@ -113,11 +110,11 @@ class Perk:
     
     def print_result(self, result):
         if result.success:
-            if not self.has_target_1:
+            if not self.has_target_1: # no targets
                 print(f'{self.identity}: You {self.__str__()}ed.')
-            elif not self.has_target_2:
+            elif not self.has_target_2: # only target 1
                 print(f'{self.identity}: You {self.verb_past_target_1} {result.target_1}.')
-            else:
+            else:                       # target 1 and target 2.
                 print(f'{self.identity}: You {self.verb_past_target_1} {result.target_1} {self.verb_past_target_2} {result.target_2}.')
         else:
             if not self.has_target_1:
@@ -408,9 +405,14 @@ class Paranoid(Perk):
         Paranoid perk
 
         If you are observed at night, you are notified of who observed you.
+
+        Note: this seems crazy powerful? nerf it
         """
         super().__init__(identity, num_players)
         self.passive = True
+    
+    def __str__(self):
+        return 'paranoid'
         
         
 class Bounty(Perk):
@@ -423,9 +425,17 @@ class Bounty(Perk):
         you get a bonus poin. If they are not killed or voted out, you lose one bonus point.
         """
         super().__init__(identity, num_players)
-        self.target = [x for x in range(1, num_players+1) if x != identity][rand.randint(0, num_players - 2)]
-        self.remaining_days = 2 # as a scummy workaround, 2 = 1 day left, 1 = timer ran out and 0 = perk isn't really active anymore.
+        self.target = None
+        self.has_target_1 = True
+        self.banned_target_1 = []
+        self.verb_past_target_1 = 'set a bounty on'
+        self.verb_present_target_1 = 'set a bounty on'
+        self.remaining_days = 2 # as a scummy workaround, 2 = 1 day left, 1 = timer ran out and 0 = perk isn't really active anymore. Could and should probably implement this better
         self.activated = False
+        self.charges = 1
+
+    def __str__(self):
+        return 'bounty'
 
         
 class Relentless(Perk):
@@ -435,6 +445,11 @@ class Relentless(Perk):
         
         Kills bypass shield.
         """
+        super().__init__(identity, num_players)
+        self.passive = True 
+
+    def __str__(self):
+        return 'relentless'
         
         
 
@@ -446,6 +461,10 @@ class Peer(Perk):
         Choose a player; if they are not the killer, you have a 1 in 2 chance
         of confirming that they are not the killer. 
         """
+        super().__init__(identity, num_players)
+
+    def __str__(self):
+        return 'peer'
 
 
 class Compel(Perk):
@@ -457,6 +476,10 @@ class Compel(Perk):
         how will this interact with distract? i feel as though this should
         be over-ridden by distract.
         """
+        super().__init__(identity, num_players)
+    
+    def __str__(self):
+        return 'compel'
 
 
 class Nosey(Perk):
@@ -467,5 +490,41 @@ class Nosey(Perk):
         Choose a target; read all whispers to and from that player in the next
         day phase.
         """
+        super().__init__(identity, num_players)
+
+    def __str__(self):
+        return 'nosey'
         
+
+class Triangulate(Perk): 
+    def __init__(self, identity, num_players):
+        """
+        Triangulate perk (definitely come up with a better name)
+
+        Choose two targets; learn if a visitation occurred between those two
+        targets. 
+        
+        Note: The idea is to have some sort of investigative perk that I can
+        give loads of charges to because it's not that powerful/is difficult to
+        use effectively. If I can come up with more of these it's probably a 
+        good thing.
+        """
+        super().__init__(identity, num_players)
+        self.has_target_1 = True
+        self.banned_target_1 = []
+        self.verb_past_target_1 = 'watched'
+        self.verb_present_target_1 = 'watch'
+        self.has_target_2 = True
+        self.banned_target_2 = []
+        self.verb_past_target_2 = 'and'
+        self.verb_present_target_2 = 'watch'
+        self.targets_must_be_distinct = True
+
+    def print_result(self, result):
+        super().print_result(result)
+        if result.success:
+            print(f'{self.identity}: {"A" if result.result else "No"} visit occurred between {result.target_1} and {result.target_2}.')
+
+    def __str__(self):
+        return 'triangulate'
         

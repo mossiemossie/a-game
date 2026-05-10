@@ -11,13 +11,7 @@ todos:
 """
 
 from player import Player, ResponseNight
-
-# define perks, and define which perks are visits.
-PERKS = ['vigil', 'track', 'distract', 'shield', 'selfish', 'gaze', 'telepathy'
-         , 'narcissist', 'static', 'forgery', 'pact', 'vindictive', 'bounty']
-PERK_WEIGHTS = [1] * len(PERKS)
-UNIQUE_PERKS = ['distract', 'forgery', 'bounty']
-VISITS = ['kill', 'track', 'shield']
+from defs import PERKS, PERK_WEIGHTS, UNIQUE_PERKS, VISIT_PERKS, FIRST_ROUND_PERKS
 
 import pandas as pd
 import random as rand
@@ -26,9 +20,7 @@ import sys
 from night_abilities import distract, shield_and_kill, gaze, visit_abilities
 
 # to-dos
-#           - bounty logic has been implemented but in no way tested.
-#           - bounty needs to be activateable during the night.
-#           - define the perks, weights, unique perks and visits elsewhere, and import them into this & player as necessary.
+#           - need to go through and make sure perks that are implemented are actually implemented everywhere
 #           - loads of perks to implement
 #           - actual UI
 
@@ -42,7 +34,7 @@ class GameMaster:
         self.players[self.current_killer].set_killer(True)
         self.players_perks = {i : [] for i in range(1, num_players + 1)}
         
-        self.give_perks(1)
+        self.give_perks(1, first_round = True)
         
         # set up point scoring
         self.points_df = pd.DataFrame([[0.0, 0.0] for i in range(1, num_players + 1)])
@@ -90,7 +82,11 @@ class GameMaster:
 
     def day_phase(self, killed_player, time_phase):
         self.broadcast(f'Day {time_phase + 1}.')
-        responses = {i : self.players[i].get_day_response() for i in self.players if i != killed_player}
+        if killed_player is not None:
+            self.broadcast(f'{killed_player} was killed.')
+        else:
+            self.broadcast("No-one was killed.")
+        responses = {i : self.players[i].send_day_response() for i in self.players if i != killed_player}
         responses = pd.DataFrame(responses).T
 
         bounty_exists = False
@@ -178,7 +174,7 @@ class GameMaster:
         return actions
     
     
-    def give_perks(self, num_perks_each):
+    def give_perks(self, num_perks_each, first_round = False):
         """
         Get a random perk from the list of perks. Will not return perks that
         are unique and have already been given out, or that the player already
@@ -194,11 +190,13 @@ class GameMaster:
         None.
 
         """
+        master_perk_list = FIRST_ROUND_PERKS if first_round else PERKS
+
         # get a list of perks that are eligible to give out (all perks - unique perks that are currently being held)
         current_perks = list(chain.from_iterable(self.players_perks.values()))
         banned_perks = [x for x in current_perks if (x in UNIQUE_PERKS) or (current_perks.count(x) > int(self.num_players/3))]
-        one_from_ban = UNIQUE_PERKS + [x for x in PERKS if current_perks.count(x) == int(self.num_players/3) - 1]
-        globally_eligible_perks = [x for x in PERKS if x not in banned_perks]
+        one_from_ban = UNIQUE_PERKS + [x for x in master_perk_list if current_perks.count(x) == int(self.num_players/3) - 1]
+        globally_eligible_perks = [x for x in master_perk_list if x not in banned_perks]
         result = [None] * self.num_players
         
         # randomly select a player
@@ -214,7 +212,7 @@ class GameMaster:
             # redefine ineligible perks
             new_bans = [x for x in perks_to_give if x in one_from_ban]
             banned_perks += new_bans
-            globally_eligible_perks = [x for x in PERKS if x not in banned_perks]
+            globally_eligible_perks = [x for x in master_perk_list if x not in banned_perks]
     
         # give the players their perks
         for i in players:
