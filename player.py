@@ -12,8 +12,6 @@ import random as rand
 
 from defs import PERKS, PERK_WEIGHTS, UNIQUE_PERKS, VISIT_PERKS, FIRST_ROUND_PERKS
 
-from player_gui import PlayerWindow
-from PyQt6.QtWidgets import QApplication
 import sys
 
 
@@ -45,11 +43,6 @@ class Player:
         self.perks = ['watch']
         # actions the player can make
         self.actions = ['watch']
-
-        app = QApplication(sys.argv)
-        window = PlayerWindow()
-        window.show()
-        sys.exit(app.exec()) 
         
         
     def load_perks(self, identity, num_players):
