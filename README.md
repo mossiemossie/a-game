@@ -1,9 +1,10 @@
 # a-game
 a game
 
-Currently fully text-based.
-
-Run agame.py to run the game in terminal.
+With uvicorn installed, run
+  python -m uvicorn main:app --reload 
+in terminal, and then open 
+  http://localhost:8000
 
 TO-DO LIST:
 - stop being lazy and make an actual python environment for all of this
