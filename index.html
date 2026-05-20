@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Social Deduction Game</title>
+</head>
+<body>
+
+<div id="lobby">
+    <h2>Lobby</h2>
+    <input id="name" placeholder="Name"><br><br>
+    <input id="room" placeholder="Room Code"><br><br>
+    <button onclick="createRoom()">Create Room</button>
+    <button onclick="joinRoom()">Join Room</button>
+    <p id="status"></p>
+</div>
+
+<div id="game" style="display:none;">
+    <h3 id="roomCode"></h3>
+
+    <div style="display:flex;">
+        <!-- Players -->
+        <div>
+            <h4>Players</h4>
+            <ul id="players"></ul>
+        </div>
+
+        <!-- Chat -->
+        <div style="margin-left:20px;">
+            <h4>Chat</h4>
+            <div id="chatBox" style="border:1px solid black; height:200px; overflow:auto;"></div>
+            <input id="chatInput">
+            <button onclick="sendChat()">Send</button>
+        </div>
+
+        <!-- Actions -->
+        <div style="margin-left:20px;">
+            <h4>Actions</h4>
+            <div id="actions"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+let ws = new WebSocket("ws://localhost:8000/ws");
+let playerName = null;
+let currentState = null;
+
+// =======================
+// WebSocket Handling
+// =======================
+
+ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+
+    if (msg.type === "state") {
+        currentState = msg.data;
+        renderState();
+    }
+
+    if (msg.type === "error") {
+        document.getElementById("status").innerText = msg.message;
+    }
+};
+
+// =======================
+// Lobby Actions
+// =======================
+
+function createRoom() {
+    playerName = document.getElementById("name").value;
+
+    ws.send(JSON.stringify({
+        type: "create",
+        name: playerName
+    }));
+}
+
+function joinRoom() {
+    playerName = document.getElementById("name").value;
+    const code = document.getElementById("room").value;
+
+    ws.send(JSON.stringify({
+        type: "join",
+        name: playerName,
+        code: code
+    }));
+}
+
+// =======================
+// Chat
+// =======================
+
+function sendChat() {
+    const msg = document.getElementById("chatInput").value;
+
+    ws.send(JSON.stringify({
+        type: "chat",
+        message: msg
+    }));
+
+    document.getElementById("chatInput").value = "";
+}
+
+// =======================
+// Render State
+// =======================
+
+function renderState() {
+    // Switch UI
+    document.getElementById("lobby").style.display = "none";
+    document.getElementById("game").style.display = "block";
+
+    document.getElementById("roomCode").innerText = "Room: " + currentState.code;
+
+    // Players
+    const players = document.getElementById("players");
+    players.innerHTML = "";
+    currentState.players.forEach(p => {
+        const li = document.createElement("li");
+        li.innerText = p;
+        players.appendChild(li);
+    });
+
+    // Chat
+    const chatBox = document.getElementById("chatBox");
+    chatBox.innerHTML = "";
+    currentState.chat.forEach(([p, msg]) => {
+        const div = document.createElement("div");
+        div.innerText = p + ": " + msg;
+        chatBox.appendChild(div);
+    });
+
+    // Actions
+    renderActions();
+}
+
+// =======================
+// Dynamic Actions Panel
+// =======================
+
+function renderActions() {
+    const actionsDiv = document.getElementById("actions");
+    actionsDiv.innerHTML = "";
+
+    if (currentState.state === "lobby") {
+        if (playerName === currentState.host) {
+            const btn = document.createElement("button");
+            btn.innerText = "Start Game";
+            btn.onclick = () => {
+                ws.send(JSON.stringify({ type: "start" }));
+            };
+            actionsDiv.appendChild(btn);
+        } else {
+            actionsDiv.innerText = "Waiting for host...";
+        }
+    } else {
+        ["Track", "Shield", "Vote"].forEach(action => {
+            const btn = document.createElement("button");
+            btn.innerText = action;
+            btn.onclick = () => {
+                ws.send(JSON.stringify({
+                    type: "action",
+                    action: action
+                }));
+            };
+            actionsDiv.appendChild(btn);
+        });
+    }
+}
+</script>
+
+</body>
+</html>
