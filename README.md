@@ -2,8 +2,11 @@
 a game
 
 With uvicorn installed, run
+
   python -m uvicorn main:app --reload 
+
 in terminal, and then open 
+
   http://localhost:8000
 
 TO-DO LIST:
