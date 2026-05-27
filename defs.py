@@ -1,4 +1,12 @@
 """
+To-dos:
+First: get the underlying main.py hooked up to whatever
+Second: do all the rewiring
+Third: get the UI to reflect the abilities that each player has
+Fourth: make it so the UI reflects the phase of the day (this could maybe be earlier)
+Fifth: figure out how tf to get it so we can use an ability, pick target(/s) and then get locked out? or have a back button?
+
+
 Structure:
 
 agame.py - contains Gamemaster object - central controller for game logic.

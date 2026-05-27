@@ -21,9 +21,8 @@ class Room:
         self.players = [host_name]
         self.state = "lobby"
         self.chat_log = []
-        #self.connections = []  # active websockets
-        self.connections = {} # active websockets
-        self.connection_to_player_id = {} # mapping linking player ids to connections.
+        self.connections = {} # mapping from player id to websocket
+        self.player_dict = {} # mapping from player id to player name
         self.phase = 'day'
         self.phase_end_time = None
         self.timer_task = None
@@ -85,12 +84,15 @@ class Room:
     async def start_game(self, player):
         if player != self.host:
             return
-
-        print(self.connections)
-        print(len(self.connections))
-        player_ids = list(range(0, len(self.connections)))
-        rand.shuffle(player_ids)
-        self.connection_to_player_id = {i : p for i, p in enumerate(player_ids)}
+        
+        # rearrange the numbers in the self.connections dictionary
+        
+        order = list(range(0, len(self.players)))
+        rand.shuffle(order)
+        new_connections_dict = {i : self.connections[c] for i, c in enumerate(order)}
+        self.connections = new_connections_dict
+        self.player_dict = {i : self.players[p] for i, p in enumerate(order)}
+        self.players = [f'{i}: {self.player_dict[i]}' for i in range(0, len(self.players))]
 
         self.state = "in_game"
         self.chat_log.append(("SYSTEM", "Game started"))
@@ -201,4 +203,4 @@ async def websocket_endpoint(websocket: WebSocket):
 
     except WebSocketDisconnect:
         if room and websocket in room.connections.values():
-            room.connections.pop([k for k, v in room.connections.items() if v == websocket])
+            room.connections.pop([k for k, v in room.connections.items() if v == websocket][0])
