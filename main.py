@@ -1,8 +1,11 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
-import random
+import random as rand
 import string
 import json
+import asyncio 
+import time 
+
 
 app = FastAPI()
 
@@ -18,16 +21,22 @@ class Room:
         self.players = [host_name]
         self.state = "lobby"
         self.chat_log = []
-        self.connections = []  # active websockets
+        #self.connections = []  # active websockets
+        self.connections = {} # active websockets
+        self.connection_to_player_id = {} # mapping linking player ids to connections.
+        self.phase = 'day'
+        self.phase_end_time = None
+        self.timer_task = None
 
         self.game_master = None  # placeholder
 
     async def broadcast(self):
         """Send full state to all players"""
+        # no don't fucking do that omg
         state = self.get_state()
 
         for conn in self.connections:
-            await conn.send_text(json.dumps({
+            await self.connections[conn].send_text(json.dumps({
                 "type": "state",
                 "data": state
             }))
@@ -40,14 +49,30 @@ class Room:
             "host": self.host,
             "state": self.state,
             "chat": self.chat_log,
+            "phase": self.phase,
+            "phase_end_time": self.phase_end_time
         }
+
+    async def game_loop(self):
+        days = [d for d in range(1, 11)]
+        phases = ['transition', 'night', 'transition', 'day']
+        while True:
+            for d in days:
+                for p in phases:
+                    t = 5 if p == 'transition' else 30
+                    self.phase = p  
+                    self.phase_end_time = time.time() + t
+                    await self.broadcast()
+                    await asyncio.sleep(t)
+            
 
     async def add_player(self, name, websocket):
         if self.state != "lobby":
             return False
 
         self.players.append(name)
-        self.connections.append(websocket)
+        connection_num = len(self.connections)
+        self.connections.update({connection_num : websocket})
         self.chat_log.append(("SYSTEM", f"{name} joined"))
 
         await self.broadcast()
@@ -61,8 +86,16 @@ class Room:
         if player != self.host:
             return
 
+        print(self.connections)
+        print(len(self.connections))
+        player_ids = list(range(0, len(self.connections)))
+        rand.shuffle(player_ids)
+        self.connection_to_player_id = {i : p for i, p in enumerate(player_ids)}
+
         self.state = "in_game"
         self.chat_log.append(("SYSTEM", "Game started"))
+
+        self.timer_task = asyncio.create_task(self.game_loop())
 
         await self.broadcast()
 
@@ -72,7 +105,7 @@ class RoomManager:
         self.rooms = {}
 
     def create_room(self, host_name):
-        code = ''.join(random.choices(string.ascii_uppercase, k=4))
+        code = ''.join(rand.choices(string.ascii_uppercase, k=4))
         room = Room(code, host_name)
         self.rooms[code] = room
         return room
@@ -115,8 +148,15 @@ async def websocket_endpoint(websocket: WebSocket):
             # ----------------------
             if msg["type"] == "create":
                 player_name = msg["name"]
+                print(f'NAME IS {player_name}')
+                if player_name == '':
+                    await websocket.send_text(json.dumps({
+                        "type" : "error",
+                        "message" : "Enter a name"
+                    }))
+
                 room = ROOM_MANAGER.create_room(player_name)
-                room.connections.append(websocket)
+                room.connections.update({len(room.connections) : websocket})
 
                 await room.broadcast()
 
@@ -125,6 +165,12 @@ async def websocket_endpoint(websocket: WebSocket):
             # ----------------------
             elif msg["type"] == "join":
                 player_name = msg["name"]
+                if player_name == '':
+                    await websocket.send_text(json.dumps({
+                        "type" : "error",
+                        "message" : "Enter a name"
+                    }))
+
                 room = ROOM_MANAGER.get_room(msg["code"])
 
                 if room:
@@ -154,5 +200,5 @@ async def websocket_endpoint(websocket: WebSocket):
                 await room.add_message(player_name, f"[ACTION] {msg['action']}")
 
     except WebSocketDisconnect:
-        if room and websocket in room.connections:
-            room.connections.remove(websocket)
+        if room and websocket in room.connections.values():
+            room.connections.pop([k for k, v in room.connections.items() if v == websocket])
