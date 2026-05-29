@@ -5,6 +5,7 @@ import string
 import json
 import asyncio 
 import time 
+from gamemaster import GameMaster
 
 
 app = FastAPI()
@@ -18,7 +19,7 @@ class Room:
     def __init__(self, code, host_name):
         self.code = code
         self.host = host_name
-        self.players = [host_name]
+        self.players = [host_name] # list of player names (strings)
         self.state = "lobby"
         self.chat_log = []
         self.connections = {} # mapping from player id to websocket
@@ -59,6 +60,9 @@ class Room:
             for d in days:
                 for p in phases:
                     t = 5 if p == 'transition' else 30
+                    if self.phase == 'night':
+                        self.game_master.process_player_actions()
+
                     self.phase = p  
                     self.phase_end_time = time.time() + t
                     await self.broadcast()
@@ -94,6 +98,8 @@ class Room:
         self.player_dict = {i : self.players[p] for i, p in enumerate(order)}
         self.players = [f'{i}: {self.player_dict[i]}' for i in range(0, len(self.players))]
 
+        self.game_master = GameMaster(self.player_dict)
+
         self.state = "in_game"
         self.chat_log.append(("SYSTEM", "Game started"))
 
@@ -118,6 +124,10 @@ class RoomManager:
 
 ROOM_MANAGER = RoomManager()
 
+
+class PlayerAction: #this will maybe be the action that gets sent to the gamemaster? dunno hey.
+    def __init__(self):
+        pass
 
 # ==============================
 # HTTP Endpoint (serve frontend)

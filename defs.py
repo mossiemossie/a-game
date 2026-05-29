@@ -9,8 +9,10 @@ Fifth: figure out how tf to get it so we can use an ability, pick target(/s) and
 
 Structure:
 
-agame.py - contains Gamemaster object - central controller for game logic.
+agame.py - [DEPRECATED] contains Gamemaster object - central controller for game logic.
 Contains logic for day and day perks, and logic for night
+
+gamemaster.py - replacement for agame.py, since much of the logic in agame.py is centered around text-based interaction.
 
 night_abilities.py - contains functions w/ logic for night abilities
 
