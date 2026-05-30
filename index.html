@@ -32,10 +32,24 @@
             <button onclick="sendChat()">Send</button>
         </div>
 
+        <!-- Notifications -->
+        <div style="margin-left:20px;">
+            <h4>Messages</h4>
+            <div id="notifications" style="border:1px solid black; height:200px; overflow:auto;"></div>
+        </div>
+
         <!-- Actions -->
         <div style="margin-left:20px;">
             <h4>Actions</h4>
             <div id="actions"></div>
+        </div>
+
+        <div id="targetPanel" style="display:none; margin-top:20px; border:1px solid black; padding:10px;">
+            <h4 id="targetTitle"></h4>
+            <div id="targetContainers" style="display:flex; gap:20px;"></div>
+            <br>
+            <button onclick="confirmTargets()">Confirm</button>
+            <button onclick="cancelTargets()">Cancel</button>
         </div>
 
         <!-- Clock -->
@@ -53,6 +67,10 @@ let currentState = null;
 
 let phaseEndTime = 0;
 let currentPhase = "";
+
+let selectedAction = null;
+let requiredTargets = 0;
+let selectedTargets = [];
 
 setInterval(() => {
     if (!phaseEndTime) return;
@@ -151,6 +169,15 @@ function renderState() {
         chatBox.appendChild(div);
     });
 
+    // Notifications
+    const notifications = document.getElementById("notifications");
+    notifications.innerHTML = "";
+    currentState.notifications.forEach(([p, msg]) => {
+        const div = document.createElement("div");
+        div.innerText = p + ": " + msg;
+        notifications.appendChild(div);
+    })
+
     phaseEndTime = currentState.phase_end_time;
     currentPhase = currentState.phase;
 
@@ -177,19 +204,100 @@ function renderActions() {
         } else {
             actionsDiv.innerText = "Waiting for host...";
         }
-    } else {
-        ["Track", "Shield", "Vote"].forEach(action => {
-            const btn = document.createElement("button");
-            btn.innerText = action;
-            btn.onclick = () => {
+        return;
+    }
+
+    currentState.actions.forEach(action => {
+        const btn = document.createElement("button");
+        btn.innerText = action;
+
+        btn.onclick = () => {
+            const targetsNeeded = currentState.action_targets[action];
+
+            if (targetsNeeded === 0) {
                 ws.send(JSON.stringify({
                     type: "action",
-                    action: action
+                    action: action,
+                    targets: []
                 }));
+                return;
+            }
+        
+            openTargetPanel(action);
+        };
+
+        actionsDiv.appendChild(btn);
+    });
+}
+
+function openTargetPanel(action) {
+    selectedAction = action;
+    requiredTargets = currentState.action_targets[action];
+
+    if (requiredTargets === 0) return;
+
+    selectedTargets = [];
+
+    document.getElementById("targetPanel").style.display = "block";
+    document.getElementById("targetTitle").innerText =
+        `Select ${requiredTargets} target(s) for ${action}`;
+
+    const container = document.getElementById("targetContainers");
+    container.innerHTML = "";
+
+    // Create one column per target
+    for (let i = 0; i < requiredTargets; i++) {
+        const col = document.createElement("div");
+
+        currentState.players.forEach(player => {
+            const btn = document.createElement("button");
+            btn.innerText = player;
+
+            btn.onclick = () => {
+                selectedTargets[i] = player;
+                highlightSelection(col, player);
             };
-            actionsDiv.appendChild(btn);
+
+            col.appendChild(btn);
+            col.appendChild(document.createElement("br"));
         });
+
+        container.appendChild(col);
     }
+}
+
+function highlightSelection(container, player) {
+    Array.from(container.children).forEach(child => {
+        if (child.tagName === "BUTTON") {
+            child.style.backgroundColor =
+                (child.innerText === player) ? "lightgreen" : "";
+        }
+    });
+}
+
+function confirmTargets() {
+    if (selectedTargets.length < requiredTargets || selectedTargets.includes(undefined)) {
+        alert("Select all targets first");
+        return;
+    }
+
+    ws.send(JSON.stringify({
+        type: "action",
+        action: selectedAction,
+        targets: selectedTargets
+    }));
+
+    closeTargetPanel();
+}
+
+function cancelTargets() {
+    closeTargetPanel();
+}
+
+function closeTargetPanel() {
+    document.getElementById("targetPanel").style.display = "none";
+    selectedAction = null;
+    selectedTargets = [];
 }
 </script>
 

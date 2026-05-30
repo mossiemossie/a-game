@@ -22,8 +22,20 @@ class Room:
         self.players = [host_name] # list of player names (strings)
         self.state = "lobby"
         self.chat_log = []
-        self.connections = {} # mapping from player id to websocket
-        self.player_dict = {} # mapping from player id to player name
+        self.notification_log = {}
+
+        # mapping from player id to websocket
+        self.connections = {} 
+
+        # mapping from player id to player name
+        self.player_id_to_name = {} 
+        self.player_name_to_id = {}
+
+        # mapping from player id to last action taken
+        # read and then wiped at the end of each night phase
+        # updated every time an action is made.
+        self.actions = {} 
+
         self.phase = 'day'
         self.phase_end_time = None
         self.timer_task = None
@@ -32,17 +44,30 @@ class Room:
 
     async def broadcast(self):
         """Send full state to all players"""
-        # no don't fucking do that omg
-        state = self.get_state()
+        state = self.get_public_state()
 
-        for conn in self.connections:
-            await self.connections[conn].send_text(json.dumps({
+        for player_id in self.connections:
+            private_state = self.game_master.get_private_state(player_id)
+            state.update(private_state)
+            state.update(
+                {
+                    "actions" : ['Watch', 'Shield', 'Triangulate'], #temp
+                    "action_targets" : 
+                    {
+                        "Watch" : 0,
+                        "Shield" : 1,
+                        "Triangulate" : 2
+                    }
+                }
+            )
+
+            await self.connections[player_id].send_text(json.dumps({
                 "type": "state",
                 "data": state
             }))
 
-    def get_state(self):
-        """Return public state (filter later per player)"""
+    def get_public_state(self):
+        """Return public state"""
         return {
             "code": self.code,
             "players": self.players,
@@ -50,7 +75,7 @@ class Room:
             "state": self.state,
             "chat": self.chat_log,
             "phase": self.phase,
-            "phase_end_time": self.phase_end_time
+            "phase_end_time": self.phase_end_time,
         }
 
     async def game_loop(self):
@@ -60,14 +85,26 @@ class Room:
             for d in days:
                 for p in phases:
                     t = 5 if p == 'transition' else 30
-                    if self.phase == 'night':
-                        self.game_master.process_player_actions()
+                    if self.phase == 'night': #night phase has ended, so read and then wipe the actions dict.
+                        new_notifications = self.game_master.process_player_actions(self.actions)
+                        for player_id in new_notifications:
+                            self.notification_log[player_id].append(new_notifications[player_id])
+                            
+                        self.wipe_actions()
+                        await self.broadcast()
 
                     self.phase = p  
                     self.phase_end_time = time.time() + t
                     await self.broadcast()
                     await asyncio.sleep(t)
             
+    async def update_actions(self, name, msg):
+        player_id = self.player_name_to_id[name]
+        self.actions[player_id] = {'action' : msg['action'], 'targets' : msg['targets']}
+
+    def wipe_actions(self):
+        self.actions = {i : None for i in range(0, len(self.players))}
+    
 
     async def add_player(self, name, websocket):
         if self.state != "lobby":
@@ -89,16 +126,22 @@ class Room:
         if player != self.host:
             return
         
+        # init our various dictionaries
         # rearrange the numbers in the self.connections dictionary
         
         order = list(range(0, len(self.players)))
         rand.shuffle(order)
         new_connections_dict = {i : self.connections[c] for i, c in enumerate(order)}
         self.connections = new_connections_dict
-        self.player_dict = {i : self.players[p] for i, p in enumerate(order)}
-        self.players = [f'{i}: {self.player_dict[i]}' for i in range(0, len(self.players))]
 
-        self.game_master = GameMaster(self.player_dict)
+        self.player_id_to_name = {i : self.players[p] for i, p in enumerate(order)}
+        self.player_name_to_id = {v:k for k,v in self.player_id_to_name.items()}
+        self.players = [f'{i}: {self.player_id_to_name[i]}' for i in range(0, len(self.players))] #maybe a mistake
+
+        self.actions = {i : None for i, _ in enumerate(order)}
+        self.notification_log = {i : [] for i, _ in enumerate(order)}
+
+        self.game_master = GameMaster(self.player_id_to_name)
 
         self.state = "in_game"
         self.chat_log.append(("SYSTEM", "Game started"))
@@ -209,7 +252,8 @@ async def websocket_endpoint(websocket: WebSocket):
             # ACTION (placeholder)
             # ----------------------
             elif msg["type"] == "action":
-                await room.add_message(player_name, f"[ACTION] {msg['action']}")
+                room.update_actions(player_name, msg)
+                await room.add_message(player_name, f"[ACTION] {msg['action']}") #rmv later
 
     except WebSocketDisconnect:
         if room and websocket in room.connections.values():

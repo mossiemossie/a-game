@@ -1,12 +1,11 @@
 """
 To-dos:
-First: get the underlying main.py hooked up to whatever
-Second: do all the rewiring
-Third: get the UI to reflect the abilities that each player has
-Fourth: make it so the UI reflects the phase of the day (this could maybe be earlier)
-Fifth: figure out how tf to get it so we can use an ability, pick target(/s) and then get locked out? or have a back button?
-
-
+- make sure names are unique
+- get the name and player_id linked in the chat
+- once stuff is working to a reasonable degree, i DEFINITELY need to go through and 
+    spend a decent amount of time cleaning shit up.
+- make the numbers start at 1 because people don't start from 0 irl like computers do.
+- make it so that if you don't elect to freeze someone, you freeze a random player.
 Structure:
 
 agame.py - [DEPRECATED] contains Gamemaster object - central controller for game logic.
@@ -42,19 +41,19 @@ This file is a global source for certain global static variables.
 """
 
 # All available perks
-PERKS = ['vigil', 'track', 'distract', 'shield', 'selfish', 'gaze', 
-         'telepathy', 'narcissist', 'static', 'forgery', 'pact', 'vindictive', 
-         'bounty', 'relentless', 'triangulate']
+PERKS = ['vigil', 'track', 'compel', 'shield', 'selfish', 'gaze', 
+         'telepathy', 'narcissism', 'static', 'forger', 'pact', 'vindictive', 
+         'bounty', 'relentless', 'peer', 'infer']
 
 # Weights of each given perk; currently just set to 1.
 PERK_WEIGHTS = [1] * len(PERKS)
 
 # All perks that can be selected in the first round
-FIRST_ROUND_PERKS = ['vigil', 'track', 'shield', 'telepathy', 'static', 'bounty',
-                     'triangulate']
+FIRST_ROUND_PERKS = ['vigil', 'track', 'shield', 'telepathy', 'bounty', 'peer',
+                     'infer']
 
 # All perks that are unique (only one player can have these perks)
-UNIQUE_PERKS = ['distract', 'forgery']
+UNIQUE_PERKS = ['compel', 'forger']
 
 # All perks that count as visitations
 VISIT_PERKS = ['kill', 'track', 'vigil', 'shield', 'gaze']
