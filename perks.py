@@ -43,6 +43,15 @@ class Perk:
                 return [f'You attempted to {self.verb_present} {result.target_1} {self.preposition} {result.target_2}, but {result.result}']
 
 
+    def get_num_charges(self):
+        return self.charges
+
+    def get_num_targets(self):
+        if not self.has_target_1:
+            return 0
+        else:
+            return 2 if self.has_target_2 else 1
+
     def process_night_result(self, result):
         if self.charges is not None:
             self.charges -= 1

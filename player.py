@@ -16,7 +16,19 @@ class Player:
         if self.cursed:
             return ['freeze']
         else:
-            return ['watch'] + [str(self.perks[x]) for x in self.perks if x.is_action()]
+            return [x for x in self.perks if self.perks[x].is_action() and x != 'freeze']
+        
+    def get_action_targets(self):
+        if self.cursed:
+            return [1]
+        else:
+            return [self.perks[x].get_num_targets() for x in self.get_actions()]
+
+    def get_action_charges(self):
+        return [self.perks[x].get_num_charges() for x in self.get_actions()]
+
+    def get_additional_perks(self):
+        pass
 
     def get_perks(self):
         return self.perk_names
@@ -81,6 +93,15 @@ class Player:
     
     def get_private_state(self):
         # IMPLEMENT NEXT
+        private_state = {
+            'actions' : self.get_actions(),
+            'action_targets' : self.get_action_targets(),
+            'action_charges' : self.get_action_charges(),
+            'perks' : self.get_additional_perks(),
+            'cursed' : self.cursed,
+            'frozen' : self.frozen
+        }
+        return private_state
 
     def set_cursed(self, cursed_value):
         self.cursed = cursed_value
