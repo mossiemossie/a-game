@@ -23,25 +23,27 @@ class Perk:
         self.preposition = None
 
     def get_messages(self, result):
+        messages = result.messages
         if result.success:
             # no targets
             if not self.has_target_1: 
-                return [f'You {self.verb_past}.']
+                messages.append(f'You {self.verb_past}.')
             # one target 
             elif not self.has_target_2: 
-                return [f'You {self.verb_past} {result.target_1}.']
+                messages.append(f'You {self.verb_past} {result.target_1}.')
             # two targets
             else:
-                return [f'You {self.verb_past} {result.target_1} {self.preposition} {result.target_2}']
+                messages.append(f'You {self.verb_past} {result.target_1} {self.preposition} {result.target_2}')
         
         else:
             if not self.has_target_1:
-                return [f'You attempted to {self.verb_present}, but {result.result}.']
+                messages.append(f'You attempted to {self.verb_present}, but {result.outcome}.')
             elif not self.has_target_2:
-                return [f'You attempted to {self.verb_present} {result.target_1}, but {result.result}.']
+                messages.append(f'You attempted to {self.verb_present} {result.target_1}, but {result.outcome}.')
             else:
-                return [f'You attempted to {self.verb_present} {result.target_1} {self.preposition} {result.target_2}, but {result.result}']
+                messages.append(f'You attempted to {self.verb_present} {result.target_1} {self.preposition} {result.target_2}, but {result.outcome}')
 
+        return messages
 
     def get_num_charges(self):
         return self.charges
@@ -58,9 +60,10 @@ class Perk:
         if self.remaining_days is not None:
             self.remaining_days -= 1
 
-        return self.get_messages(self, result)
+        return self.get_messages(result)
         
-        
+    def is_action(self):
+        return not self.passive
 
 
     def __repr__(self):
@@ -82,11 +85,17 @@ class Freeze(Perk):
     
 
 class Watch(Perk):
-    # 1 in 3 chance to identify who visits you. Default perk.
+    # 1 in 2 chance to identify who visits you. Default perk.
     def __init__(self, identity, player_ids):
         super().__init__(identity, player_ids)
         self.verb_past = 'watched'
         self.verb_present = 'watch'
+
+    def get_messages(self, result):
+        messages = super().get_messages(result)
+        if result.success:
+            messages.append(f'{list_to_string(result.outcome)} visited you.')
+        return messages
 
     def __str__(self):
         return 'watch'
@@ -99,12 +108,12 @@ class Vigil(Perk):
         self.has_target_1 = True
         self.verb_present = 'watch over'
         self.verb_past = 'watched over'
-        self.charges = 2
+        self.charges = 5
 
     def get_messages(self, result):
         messages = super().get_messages(result)
         if result.success:
-            messages.append(f'{list_to_string(result.result)} visited {result.target_1}')
+            messages.append(f'{list_to_string(result.outcome)} visited {result.target_1}')
         return messages
 
     def __str__(self):
@@ -118,12 +127,12 @@ class Track(Perk):
         self.has_target_1 = True
         self.verb_present = 'track'
         self.verb_past = 'tracked'
-        self.charges = 2
+        self.charges = 5
 
     def get_messages(self, result):
         messages = super().get_messages(result)
         if result.success:
-            messages.append(f'{result.target_1} visited {list_to_string(result.result)}.')
+            messages.append(f'{result.target_1} visited {list_to_string(result.outcome, capitalize = False)}.')
         return messages
         
     def __str__(self):
@@ -153,7 +162,7 @@ class Shield(Perk):
         self.has_target_1 = True
         self.verb_present = 'shield'
         self.verb_past = 'shielded'
-        self.charges = 5
+        self.charges = 6
 
     def __str__(self):
         return 'shield'
@@ -176,12 +185,12 @@ class Gaze(Perk):
         self.has_target_1 = True
         self.verb_present = 'gaze upon'
         self.verb_past = 'gazed upon'
-        self.charges = 1
+        self.charges = 2
 
     def get_messages(self, result):
         messages = super().get_messages(result)
         if result.success:
-            messages.append(f'{result.target_1} has the perks {list_to_string(result.result)}.')
+            messages.append(f'{result.target_1} has the perks {list_to_string(result.outcome)}.')
         return messages
     
     def __str__(self):
@@ -195,7 +204,7 @@ class Telepathy(Perk):
         self.has_target_1 = True
         self.verb_present = 'communicate to'
         self.verb_past = 'communicated to'
-        self.charges = 3
+        self.charges = 6
 
     def __str__(self):
         return 'telepathy'
@@ -231,7 +240,7 @@ class Forger(Perk):
         self.verb_past = 'misled'
         self.preposition = 'into seeing'
         self.targets_must_be_distinct = True 
-        self.charges = 2
+        self.charges = 3
 
     def __str__(self):
         return 'forger'
@@ -263,7 +272,7 @@ class Vindictive(Perk):
 
 class Bounty(Perk):
     # Set a bounty on a random player; if they are frozen within two day phases, you and the cursed get 2 bonus points.
-    # If they are voted out, you get a bonus point. If they are not frozen or voted, you lose a bonus point
+    # If they are voted out, you get a bonus point. If they are not frozen or voted, you lose a bonus point. Unique.
     def __init__(self, identity, player_ids):
         super().__init__(identity, player_ids)
         self.has_target_1 = True
@@ -294,12 +303,12 @@ class Peer(Perk):
         self.has_target_1 = True 
         self.verb_past = 'peered at'
         self.verb_present = 'peer at'
-        self.charges = 4
+        self.charges = 5
 
     def get_messages(self, result):
         messages = super().get_messages(result)
         if result.success:
-            messages.append(f'{result.target_1} {"is not" if result.result else "could possibly be"} cursed.')
+            messages.append(f'{result.target_1} {"is not" if result.outcome else "could possibly be"} cursed.')
 
         return messages
         
@@ -316,17 +325,24 @@ class Infer(Perk):
         self.verb_past = 'looked for visits between'
         self.verb_present = 'look for visits between'
         self.preposition = 'and'
-        self.charges = 5
-        
+        self.charges = 6
+
     def get_messages(self, result):
         messages = super().get_messages(result)
-        if result.success:
-            messages.append(f'A visit occurred between {result.target_1} and {result.target_2}.')
+        messages.append(f'{result.outcome} between {result.target_1} and {result.target_2}.')
+
+        return messages
+        
+    def __str__(self):
+        return 'infer'
 
 
-def list_to_string(target_list):
+def list_to_string(target_list, capitalize = True):
     if len(target_list) == 0:
-        return 'No-one'
+        if capitalize:
+            return 'No-one'
+        else:
+            return 'no-one'
     elif len(target_list) == 1:
         return str(target_list[0])
     else:

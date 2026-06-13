@@ -34,7 +34,7 @@
 
         <!-- Notifications -->
         <div style="margin-left:20px;">
-            <h4>Messages</h4>
+            <h4>Notifications</h4>
             <div id="notifications" style="border:1px solid black; height:200px; overflow:auto;"></div>
         </div>
 
@@ -156,7 +156,7 @@ function renderState() {
     players.innerHTML = "";
     currentState.players.forEach(p => {
         const li = document.createElement("li");
-        li.innerText = p;
+        li.innerText = `${p.id}: ${p.name}`;
         players.appendChild(li);
     });
 
@@ -172,9 +172,9 @@ function renderState() {
     // Notifications
     const notifications = document.getElementById("notifications");
     notifications.innerHTML = "";
-    currentState.notifications.forEach(([p, msg]) => {
+    currentState.notifications.forEach((msg) => {
         const div = document.createElement("div");
-        div.innerText = p + ": " + msg;
+        div.innerText = msg;
         notifications.appendChild(div);
     })
 
@@ -251,11 +251,11 @@ function openTargetPanel(action) {
 
         currentState.players.forEach(player => {
             const btn = document.createElement("button");
-            btn.innerText = player;
+            btn.innerText = `${player.id}: ${player.name}`;
 
             btn.onclick = () => {
-                selectedTargets[i] = player;
-                highlightSelection(col, player);
+                selectedTargets[i] = player.id;  // ✅ store ID only
+                highlightSelection(col, player.id);
             };
 
             col.appendChild(btn);

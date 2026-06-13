@@ -32,7 +32,11 @@ def parse(data):
 
     statics = [p for p in data.keys() if 'static' in data[p]['perks']]
 
-    results = {i : Result() for i in data.keys()}
+    results = {p_id : Result() for p_id in data}
+    for p_id in results:
+        results[p_id].set_action(data[p_id]['action'])
+        results[p_id].set_targets(data[p_id]['targets'])
+
     # pre-emptively set the forger to unsuccessful (unlike the other perks)
     if forger is not None:
         results[forger[0]].unsuccessful(f'{forger[1]} did not investigate tonight')
@@ -48,10 +52,11 @@ def parse(data):
     results = vigil(data, forger, results, statics, visits)
     results = track(data, forger, results, statics, visits)
     results = telepathy(data, forger, results, statics, visits)
-    results = infer(data, forger, results, statics, visits)
+    results = infer(data, results, statics, visits)
     results = shield_and_freeze(data, results)
     results = gaze(data, results, statics)
     results = bounty(data, results)
+    results = peer(data, results)
 
     return results
 
@@ -71,7 +76,15 @@ def broadcast(message, results):
         results[p].add_message(message)
 
     return results
-    
+
+"""
+get_cursed(data): Get the cursed id
+
+returns:
+int: the player_id of the cursed player.
+"""
+def get_cursed(data):
+    return get_ids_from_action('freeze', data)[0]
 
 """
 get_visits(data): Get visits made during the night phase.
@@ -146,6 +159,20 @@ def handle_forger(forger, p, player_ids, results):
 
     return results, player_ids
 
+def list_to_string(target_list, capitalize = True):
+    if len(target_list) == 0:
+        if capitalize:
+            return 'No-one'
+        else:
+            return 'no-one'
+    elif len(target_list) == 1:
+        return str(target_list[0])
+    else:
+        target_list = [str(x) for x in target_list]
+        s = ", ".join(target_list)
+        s = s[::-1].replace(',', 'dna ', 1)[::-1] #swap last ',' for 'and'
+        return s
+
 
 #-------#
 # PERKS #
@@ -155,7 +182,7 @@ def handle_forger(forger, p, player_ids, results):
 bounty
 """
 def bounty(data, results):
-    bounties = get_ids_from_action('bounty')
+    bounties = get_ids_from_action('bounty', data)
 
     for b in bounties:
         target = data[b]['targets'][0]
@@ -220,9 +247,39 @@ def infer(data, results, statics, visits):
         no_visit = not ((data[i]['targets'][0], data[i]['targets'][1]) in visits or (data[i]['targets'][1], data[i]['targets'][0]) in visits)
 
         if target_static or no_visit:
-            results[i].unsuccessful('no visit occurred.')
+            results[i].set_outcome('No visit occured')
+        else:
+            results[i].set_outcome('A visit occured')
             
     return results     
+
+
+"""
+peer
+"""
+def peer(data, results):
+    # only edge case to deal with currently is if the cursed player has static;
+    cursed = get_cursed(data)
+    cursed_has_static = 'static' in data[cursed]['perks']
+    peers = get_ids_from_action('peer', data)
+
+    for p in peers:
+        target = data[p]['targets'][0]
+        
+        if rand.randint(0, 1) > 0: # Can't confirm whether or not player is cursed;
+            # but if cursed player has static and passes they'll be confirmed as not cursed:
+            if target == cursed and cursed_has_static and rand.randint(0, 3) == 0:
+                results[p].set_outcome(True) # p will be told target is confirmed not cursed
+            else:
+                results[p].set_outcome(False) # p will be told target is unconfirmed
+        else:
+            if target == cursed:
+                results[p].set_outcome(False) # p will be told target is unconfirmed
+            else:
+                results[p].set_outcome(True) # p will be told target is confirmed.
+        
+    return results
+            
 
 
 """
@@ -231,7 +288,7 @@ shield and freeze
 def shield_and_freeze(data, results):
     shielders = get_ids_from_action('shield', data)
     shielded = [data[s]['targets'][0] for s in shielders]
-    cursed = get_ids_from_action('freeze', data)
+    cursed = get_cursed(data)
     cursed_is_relentless = 'relentless' in data[cursed]['perks']
     frozen = data[cursed]['targets'][0]
 
@@ -251,7 +308,7 @@ def shield_and_freeze(data, results):
             results = broadcast(f'{frozen} was frozen.', results)
         else:
             results[cursed].unsuccessful('they were shielded')
-            results = broadcast('Nobody was frozen.')
+            results = broadcast('Nobody was frozen.', results)
 
         for u in unsuccessful_shielders:
             results[u].unsuccessful('they were not attacked')
@@ -275,8 +332,9 @@ def telepathy(data, forger, results, statics, visits):
     for t in telepaths:
         visitors = get_visitors(t, visits)
         visitors = handle_static(data, visitors, statics)
-        results, visitors = handle_forger(forger, t, visitors)
-        results[data[t]['target_1']].add_message(f'{visitors} visited {t} tonight.') #this needs fixing probably, visitors will show up as a list.
+        results, visitors = handle_forger(forger, t, visitors, results)
+        print(data[t]['targets'][0])
+        results[data[t]['targets'][0]].add_message(f'{list_to_string(visitors)} visited {t} tonight.') #this needs fixing probably, visitors will show up as a list.
 
     return results
 
@@ -288,9 +346,9 @@ def track(data, forger, results, statics, visits):
     trackers = get_ids_from_action('track', data)
     
     for t in trackers:
-        visited = get_visited(data[t]['target'][0], visits)
+        visited = get_visited(data[t]['targets'][0], visits)
         visited = handle_static(data, visited, statics)
-        results, visited = handle_forger(forger, t, visited)
+        results, visited = handle_forger(forger, t, visited, results)
         results[t].set_outcome(visited)
 
     return results
@@ -303,9 +361,10 @@ def vigil(data, forger, results, statics, visits):
     vigils = get_ids_from_action('vigil', data)
     
     for v in vigils:
-        visitors = get_visitors(data[v]['target'][0], visits)
+        visitors = get_visitors(data[v]['targets'][0], visits)
+        visitors = [x for x in visitors if x != v]
         visitors = handle_static(data, visitors, statics)
-        results, visitors = handle_forger(forger, v, visitors)
+        results, visitors = handle_forger(forger, v, visitors, results)
         results[v].set_outcome(visitors)
 
     return results
@@ -322,7 +381,7 @@ def watch(data, forger, results, statics, visits):
             if forger[1] == w:
                 results[w].set_outcome([forger[2]])
             
-        elif rand.randint(0, 2) > 0: # unsuccessful
+        elif rand.randint(0, 1) > 0: # unsuccessful
             results[w].unsuccessful("couldn't make out who may have visited you, if anyone")
         
         else:
@@ -370,7 +429,7 @@ class Result:
         self.frozen = True 
 
     def set_outcome(self, outcome):
-        self.result = outcome
+        self.outcome = outcome
 
     def __str__(self):
         return f'Action = {self.action}, successful = {self.success}, messages = {self.messages}, frozen = {self.frozen}, outcome = {self.outcome}'

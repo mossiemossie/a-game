@@ -19,9 +19,9 @@ from defs import PERKS, PERK_WEIGHTS, UNIQUE_PERKS, VISIT_PERKS, FIRST_ROUND_PER
 from night_logic import parse
 
 class GameMaster:
-    def __init__(self, player_id_to_name):
-        self.num_players = len(player_id_to_name)
-        self.player_ids = list(player_id_to_name.keys())
+    def __init__(self, player_ids):
+        self.num_players = len(player_ids)
+        self.player_ids = player_ids
 
         self.players = {i : Player(i, self.player_ids) for i in self.player_ids}
         self.current_cursed = rand.choice(self.player_ids)
@@ -37,7 +37,9 @@ class GameMaster:
         for id in shuffled_ids:
             drawn_perk = rand.choices(perks_to_give, weights=weights)[0]
             if drawn_perk in UNIQUE_PERKS or perks_given.count(drawn_perk) > int(self.num_players/3):
-                perks_to_give.remove(drawn_perk)
+                idx = perks_to_give.index(drawn_perk)
+                perks_to_give.pop(idx)
+                weights.pop(idx)
 
             self.players[id].give_perk(drawn_perk)
             perks_given.append(drawn_perk)
@@ -83,12 +85,10 @@ class GameMaster:
             if actions[player_id]['action'] is None:
                 actions[player_id]['action'] = 'None'
             
-            actions[player_id].update(self.players[player_id].get_relevant_night_information)
+            actions[player_id].update(self.players[player_id].get_relevant_night_information())
 
         night_results = parse(actions)
-        new_messages = {}
-        for player_id in night_results:
-            new_messages.update({player_id : self.players[player_id].parse_night_response(night_results[player_id])})
+        new_messages = {p_id : self.players[p_id].parse_night_result(night_results[p_id]) for p_id in self.players}
 
         return new_messages
     

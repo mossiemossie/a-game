@@ -20,18 +20,21 @@ class Player:
         
     def get_action_targets(self):
         if self.cursed:
-            return [1]
+            return {'freeze' : 1}
         else:
-            return [self.perks[x].get_num_targets() for x in self.get_actions()]
+            return {str(x) : self.perks[x].get_num_targets() for x in self.get_actions()}
 
     def get_action_charges(self):
-        return [self.perks[x].get_num_charges() for x in self.get_actions()]
+        if self.cursed:
+            return {'freeze' : None}
+        else:
+            return {str(x) : self.perks[x].get_num_charges() for x in self.get_actions()}   
 
     def get_additional_perks(self):
         pass
 
     def get_perks(self):
-        return self.perk_names
+        return [x for x in self.perks.keys() if x not in ['freeze', 'watch']]
     
     def get_relevant_day_information(self):
         # get any information about the player that is relevant in calculating the day phase
@@ -97,7 +100,7 @@ class Player:
             'actions' : self.get_actions(),
             'action_targets' : self.get_action_targets(),
             'action_charges' : self.get_action_charges(),
-            'perks' : self.get_additional_perks(),
+            'perks' : self.get_perks(),
             'cursed' : self.cursed,
             'frozen' : self.frozen
         }

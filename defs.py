@@ -38,6 +38,11 @@ To fully implement a perk, it needs:
 
 This file is a global source for certain global static variables.
 
+to run: python -m uvicorn main:app --reload
+
+current issue - none is being returned through the notifications pipeline at some point.
+make a debugging.py file and use it to spoof up some results.
+
 """
 
 # All available perks
@@ -49,12 +54,11 @@ PERKS = ['vigil', 'track', 'compel', 'shield', 'selfish', 'gaze',
 PERK_WEIGHTS = [1] * len(PERKS)
 
 # All perks that can be selected in the first round
-FIRST_ROUND_PERKS = ['vigil', 'track', 'shield', 'telepathy', 'bounty', 'peer',
-                     'infer']
+FIRST_ROUND_PERKS = ['vigil', 'track', 'shield', 'telepathy', 'bounty', 'peer', 'infer', 'compel', 'gaze'] #subject to change, very much
 
 # All perks that are unique (only one player can have these perks)
-UNIQUE_PERKS = ['compel', 'forger']
+UNIQUE_PERKS = ['compel', 'forger', 'bounty']
 
 # All perks that count as visitations
-VISIT_PERKS = ['kill', 'track', 'vigil', 'shield', 'gaze']
+VISIT_PERKS = ['freeze', 'track', 'vigil', 'shield', 'gaze']
 
